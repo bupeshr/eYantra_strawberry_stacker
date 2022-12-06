@@ -8,10 +8,9 @@ import numpy as np
 import cv2
 import cv2.aruco as aruco
 import time
-from ArUco_library import *
+from aruco_library import *
 
-
-image_list = ["../Test_images/Test_image1.png","../Test_images/Test_image2.png"]
+image_list = ["../Test_images/test_image1.png","../Test_images/test_image2.png"]
 test_num = 1
 
 for image in image_list:
@@ -20,6 +19,8 @@ for image in image_list:
 	angle = Calculate_orientation_in_degree(Detected_ArUco_markers)				## finding orientation of aruco with respective to the menitoned scale in problem statement
 	img = mark_ArUco(img,Detected_ArUco_markers,angle)						## marking the parameters of aruco which are mentioned in the problem statement
 	result_image = "../Test_images/Result_image"+str(test_num)+".png"
-	cv2.imwrite(result_image,img)									## saving the result image
+	# print("resultant", result_image)
+	cv2.imwrite(result_image,img)	
+	# print("final img",cv2.imwrite(result_image,img))								## saving the result image
 	test_num = test_num +1
 
