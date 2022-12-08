@@ -19,6 +19,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import numpy as np
 import rospy
+from aruco_library import *
 
 
 class image_proc():
@@ -29,7 +30,6 @@ class image_proc():
 		
 		# Making a publisher 
 		
-		self.marker_pub = rospy.Publisher('/marker_info', Marker, queue_size=1)
 		
 		# ------------------------Add other ROS Publishers here-----------------------------------------------------
 	
@@ -45,7 +45,7 @@ class image_proc():
 		self.marker_msg=Marker()  # This will contain the message structure of message type task_1/Marker
 
 
-	# Callback function of amera topic
+	# Callback function of camera topic
 	def image_callback(self, data):
 	# Note: Do not make this function lenghty, do all the processing outside this callback function
 		try:
@@ -53,8 +53,45 @@ class image_proc():
 		except CvBridgeError as e:
 			print(e)
 			return
+
+		ard = detect_ArUco(self.img)
+		arg = Calculate_orientation_in_degree(ard)
+		id = list(ard.keys())[0]
+		corners = list(ard.values())[0]
+		angle = list(arg.values())[0]
+		# print(arg)
+
+		#from aruco_library
+		top_left, top_right, bottom_right, bottom_left = corners
+
+		top_left = (int(top_left[0]),int(top_left[1]))
+		top_right = (int(top_right[0]), int(top_right[1])) 
+		bottom_right = (int(bottom_right[0]), int(bottom_right[1]))
+		bottom_left = (int(bottom_left[0]), int(bottom_left[1]))
+
+		#center(x,y) of the marker
+		center_x = int((top_left[0]+bottom_right[0])/2)
+		center_y = int((top_left[1]+bottom_right[1])/2)
+
+		#for angle
+		if angle < 0:
+			angle = 360 - abs(angle)
+		else:
+			angle = angle
+
+
+		#publishing
+
+		self.marker_msg.id = id
+		self.marker_msg.x = center_x
+		self.marker_msg.y = center_y
+		self.marker_msg.yaw = angle
+		print(self.marker_msg)
+		print("-----------------")
+		self.publish_data(self.marker_msg)
+		# print(corners, id, angle)
 			
-	def publish_data(self):
+	def publish_data(self, marker_msg):
 		self.marker_pub.publish(self.marker_msg)
 
 if __name__ == '__main__':
