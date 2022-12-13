@@ -30,7 +30,7 @@ class image_proc():
 		
 		# Making a publisher 
 		
-		
+		self.marker_pub = rospy.Publisher('/marker_info', Marker, queue_size=1)
 		# ------------------------Add other ROS Publishers here-----------------------------------------------------
 	
         	# Subscribing to /camera/camera/image_raw
