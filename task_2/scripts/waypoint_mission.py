@@ -17,6 +17,7 @@ This node publishes and subsribes the following topics:
     /mavros/mission/push
 '''
 
+from email.policy import default
 import rospy
 from geometry_msgs.msg import Point, PoseStamped
 from mavros_msgs.msg import *
@@ -35,6 +36,7 @@ class Modes:
         try:
             armService = rospy.ServiceProxy('mavros/cmd/arming', mavros_msgs.srv.CommandBool) # Creating a proxy service for the rosservice named /mavros/cmd/arming for arming the drone 
             armService(True)
+            print("vehicle armed")
         except rospy.ServiceException as e:
             print ("Service arming call failed: %s"%e)
 
@@ -43,10 +45,36 @@ class Modes:
 
         # Call /mavros/set_mode to set the mode the drone to AUTO.MISSION
         # and print fail message on failure
+        rospy.wait_for_service('mavros/set_mode')  # Waiting untill the service starts 
+        try:
+            modeSet = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode) # Creating a proxy service for the rosservice named /mavros/cmd/arming for arming the drone 
+            modeSet(0,"AUTO.MISSION")
+            print("in auto mode")
+        
+        except rospy.ServiceException as e:
+            print ("Set Mode call failed: %s"%e)
     
     def wpPush(self,index,wps):
         # Call /mavros/mission/push to push the waypoints
         # and print fail message on failure
+        rospy.wait_for_service('mavros/mission/push')  # Waiting untill the service starts 
+        try:
+            pushWaypoint = rospy.ServiceProxy('mavros/mission/push',  WaypointPush,persistent=True) # Creating a proxy service for the rosservice named /mavros/cmd/arming for arming the drone 
+            pushWaypoint(index,wps)
+            print("waypoints pushed")
+        except rospy.ServiceException as e:
+            print ("Push Mission call failed: %s"%e)
+
+    def wpPull(self):
+        rospy.wait_for_service('mavros/mission/pull')
+        try:
+            wpPullService = rospy.ServiceProxy('mavros/mission/pull', WaypointPull,persistent=True)
+            wpPullService()
+            # print (wpPullService().wp_received)
+
+            print ("Waypoint Pulled")
+        except rospy.ServiceException as e:
+            print ("Service Puling call failed: %s",e)
    
 class stateMoniter:
     def __init__(self):
@@ -89,20 +117,41 @@ def main():
     
     rospy.Subscriber("/mavros/state",State, stateMt.stateCb)
 
-    wayp0 = wpMissionCnt()
-    wayp1 = wpMissionCnt()
+    wayp0 = wpMissionCnt() #takeoff/first waypoint
+    wayp1 = wpMissionCnt() #second waypoint
     # Add more waypoints here
+    wayp2 = wpMissionCnt() #third waypoint
+    wayp3 = wpMissionCnt() #fourth waypoint
+    wayp4 = wpMissionCnt() #back to first waypoint
+    wayp5 = wpMissionCnt() #landing in first waypoint
 
     
     wps = [] #List to story waypoints
     
-    w = wayp0.setWaypoints(3,22,True,True,0.0,0.0,0.0,float('nan'),19.134641,72.911706,10)
+    w = wayp0.setWaypoints(3,22,True,True,0.0,0.0,0.0,float('nan'),19.134423,72.911763,10)
     wps.append(w)
 
-    w = wayp1.setWaypoints(3,16,False,True,0.0,0.0,0.0,float('nan'),19.134617,72.911886,10)
+    w = wayp1.setWaypoints(3,16,True,True,0.0,0.0,0.0,float('nan'),19.134641,72.911706,10) 
     wps.append(w)
 
-    print (wps)
+#continued
+
+    w = wayp2.setWaypoints(3,16,False,True,0.0,0.0,0.0,float('nan'),19.134617,72.911886,10) 
+    wps.append(w)
+
+    w = wayp3.setWaypoints(3,16,False,True,0.0,0.0,0.0,float('nan'),19.134434,72.911817,10) 
+    wps.append(w)
+
+    w = wayp4.setWaypoints(3,16,False,True,0.0,0.0,0.0,float('nan'),19.134423,72.911763,10) 
+    wps.append(w)
+
+    w = wayp5.setWaypoints(3,21,False,True,0.0,0.0,0.0,float('nan'),19.134423,72.911763,0)
+    wps.append(w)
+
+    
+   
+
+    # print (wps)
     md.wpPush(0,wps)
 
 
@@ -117,6 +166,8 @@ def main():
         md.auto_set_mode()
         rate.sleep()
         print ("AUTO.MISSION")
+    
+    md.wpPull()
 
 
 if __name__ == '__main__':
