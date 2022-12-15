@@ -64,17 +64,6 @@ class Modes:
             print("waypoints pushed")
         except rospy.ServiceException as e:
             print ("Push Mission call failed: %s"%e)
-
-    def wpPull(self):
-        rospy.wait_for_service('mavros/mission/pull')
-        try:
-            wpPullService = rospy.ServiceProxy('mavros/mission/pull', WaypointPull,persistent=True)
-            wpPullService()
-            # print (wpPullService().wp_received)
-
-            print ("Waypoint Pulled")
-        except rospy.ServiceException as e:
-            print ("Service Puling call failed: %s",e)
    
 class stateMoniter:
     def __init__(self):
@@ -167,7 +156,7 @@ def main():
         rate.sleep()
         print ("AUTO.MISSION")
     
-    md.wpPull()
+
 
 
 if __name__ == '__main__':
