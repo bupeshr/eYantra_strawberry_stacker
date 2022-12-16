@@ -22,6 +22,7 @@ import rospy
 from geometry_msgs.msg import *
 from mavros_msgs.msg import *
 from mavros_msgs.srv import *
+import numpy as np
 
 
 class offboard_control:
@@ -46,15 +47,34 @@ class offboard_control:
 
    
     def offboard_set_mode(self):
-        pass
-
         # Call /mavros/set_mode to set the mode the drone to OFFBOARD
         # and print fail message on failure
+        rospy.wait_for_service('mavros/set_mode')  # Waiting untill the service starts 
+        try:
+            modeSet = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode) # Creating a proxy service for the rosservice named /mavros/cmd/arming for arming the drone 
+            modeSet(0, "OFFBOARD")
+            print("in offboard mode")
+        
+        except rospy.ServiceException as e:
+            print ("Set Mode call failed: %s"%e)
+
+    def land_set_mode(self):
+        # Call /mavros/set_mode to set the mode the drone to AUTO.LAND
+        # and print fail message on failure
+        rospy.wait_for_service('mavros/set_mode')  # Waiting untill the service starts 
+        try:
+            modeSet = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode) # Creating a proxy service for the rosservice named /mavros/cmd/arming for arming the drone 
+            modeSet(0, "AUTO.LAND")
+            print("in AUTO.LAND mode")
+        
+        except rospy.ServiceException as e:
+            print ("Set Mode call failed: %s"%e)
     
    
 class stateMoniter:
     def __init__(self):
         self.state = State()
+        self.loc = Point(0.0,0.0,0.0)
         # Instantiate a setpoints message
 
         
@@ -64,12 +84,26 @@ class stateMoniter:
 
     # Create more callback functions for other subscribers    
 
+    def localPose(self, msg):
+        self.loc.x = msg.pose.position.x
+        self.loc.y = msg.pose.position.y
+        self.loc.z = msg.pose.position.z
+
+
+        
 
 def main():
 
 
     stateMt = stateMoniter()
     ofb_ctl = offboard_control()
+    check = stateMt.loc
+
+    local = [check.x,check.y,check.z]
+    print(local)
+
+
+    
 
     # Initialize publishers
     local_pos_pub = rospy.Publisher('mavros/setpoint_position/local', PoseStamped, queue_size=10)
@@ -78,8 +112,8 @@ def main():
     rate = rospy.Rate(20.0)
 
     # Make the list of setpoints 
-    setpoints = [] #List to setpoints
-
+    setpoints = [[0,0,10],[10,0,10],[10,10,10],[0,10,10],[0,0,10]] #List to setpoints
+    velocity  = [[0,0, 5],[ 5,0, 0],[ 0, 5, 0],[-5,0, 0],[0,0,-5]]
     # Similarly initialize other publishers 
 
     # Create empty message containers 
@@ -90,7 +124,7 @@ def main():
 
     # Set your velocity here
     vel = Twist()
-    vel.linear.x = 0
+    vel.linear.x = 0 #as it was mentioned to keep the velocity of the drone by 5 m/s
     vel.linear.y = 0
     vel.linear.z = 0
     
@@ -100,6 +134,7 @@ def main():
     rospy.Subscriber("/mavros/state",State, stateMt.stateCb)
 
     # Similarly initialize other subscribers 
+    rospy.Subscriber("/mavros/local_position/pose",PoseStamped, stateMt.localPose)
 
 
     '''
@@ -116,13 +151,14 @@ def main():
         rate.sleep()
     print("Armed!!")
 
-    # Switching the state to auto mode
+    # Switching the state to offboard mode
     while not stateMt.state.mode=="OFFBOARD":
         ofb_ctl.offboard_set_mode()
         rate.sleep()
     print ("OFFBOARD mode activated")
 
     # Publish the setpoints 
+    i = 0
     while not rospy.is_shutdown():
         '''
         Step 1: Set the setpoint 
@@ -133,9 +169,32 @@ def main():
 
         Write your algorithm here 
         '''
+        # setpoints=[[0,0,10],[10,0,10],[10,10,10],[0,10,10]]
 
+        if i>= len(setpoints):
+            while not stateMt.state.mode=="AUTO.LAND":
+                ofb_ctl.land_set_mode()
+                rate.sleep()
+            print ("AUTO.LAND mode activated")
+            break
+            
+
+        pos.pose.position.x = setpoints[i][0]
+        pos.pose.position.y = setpoints[i][1]
+        pos.pose.position.z = setpoints[i][2]
+
+        vel.linear.x = velocity[i][0]
+        vel.linear.y = velocity[i][1]
+        vel.linear.z = velocity[i][2]
+             
+        
         local_pos_pub.publish(pos)
         local_vel_pub.publish(vel)
+        if (abs(setpoints[i][0]-check.x)<0.1 and abs(setpoints[i][1]-check.y)<0.1 and abs(setpoints[i][2]-check.z)<0.1):
+            print("reached setpoint: ",i)
+            rate.sleep()
+            i=i+1
+        
         rate.sleep()
 
 if __name__ == '__main__':
